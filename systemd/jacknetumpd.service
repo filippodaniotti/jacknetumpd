@@ -1,0 +1,11 @@
+[Unit]
+Description=Sample systemd unit to create a jacknetumpd daemon
+DefaultDependencies=no
+After=pipewire.service pipewire-jack.service wireplumber.service
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/bash pw-jack /usr/bin/jacknetumpd --localport 5504 --endpoint-name jacknetumpd
+TimeoutStartSec=0
+
+[Install]

@@ -25,8 +25,8 @@ typedef struct {
 static char MIDI2ProtocolName [] = "_midi2";
 static char UDPProtocolName [] = "_udp";
 static char LocalDomainName [] = "local";
-static char TargetName [] = "Zynthian V5";
-static char EndpointName [] = "Zynthian V5";
+static char TargetName [] = "Nexus Cube";
+static char EndpointName [] = "Nexus Cube";
 #define PRODUCT_INSTANCE_ID_LEN     17
 static char ProductInstanceID [PRODUCT_INSTANCE_ID_LEN+1] = "ZYV5_000000000000";
 

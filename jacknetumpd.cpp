@@ -350,7 +350,7 @@ int main(int argc, char** argv)
 
     initUMP_mDNS();
 
-    if ((client = jack_client_open ("jacknetumpd", JackNullOption, NULL)) == 0)
+    if ((client = jack_client_open (LocalEndpointName, JackNullOption, NULL)) == 0)
     {
         fprintf(stderr, "jacknetumpd : JACK server is not running\n");
         return -1;

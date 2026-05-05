@@ -6,11 +6,11 @@
                    projectFiles="true">
       <itemPath>../Endpoint.h</itemPath>
       <itemPath>../../NetUMP/NetUMP.h</itemPath>
-      <itemPath>../../../../../SDK/beb/common_src/SystemSleep.h</itemPath>
-      <itemPath>../../../../../SDK/beb/common_src/TargetTypes.h</itemPath>
+      <itemPath>../../BEBSDK/SystemSleep.h</itemPath>
+      <itemPath>../../BEBSDK/TargetTypes.h</itemPath>
       <itemPath>../../NetUMP/UMP_Transcoder.h</itemPath>
       <itemPath>../UMP_mDNS.h</itemPath>
-      <itemPath>../../../../../SDK/beb/common_src/network.h</itemPath>
+      <itemPath>../../BEBSDK/network.h</itemPath>
     </logicalFolder>
     <logicalFolder name="ResourceFiles"
                    displayName="Resource Files"
@@ -22,11 +22,11 @@
       <itemPath>../Endpoint.cpp</itemPath>
       <itemPath>../../NetUMP/NetUMP.cpp</itemPath>
       <itemPath>../../NetUMP/NetUMP_SessionProtocol.cpp</itemPath>
-      <itemPath>../../../../../SDK/beb/common_src/SystemSleep.cpp</itemPath>
+      <itemPath>../../BEBSDK/SystemSleep.cpp</itemPath>
       <itemPath>../../NetUMP/UMP_Transcoder.c</itemPath>
       <itemPath>../UMP_mDNS.cpp</itemPath>
       <itemPath>../jacknetumpd.cpp</itemPath>
-      <itemPath>../../../../../SDK/beb/common_src/network.cpp</itemPath>
+      <itemPath>../../BEBSDK/network.cpp</itemPath>
     </logicalFolder>
     <logicalFolder name="TestFiles"
                    displayName="Test Files"
@@ -56,7 +56,7 @@
         </cTool>
         <ccTool>
           <incDir>
-            <pElem>../../../../../SDK/beb/common_src</pElem>
+            <pElem>../../BEBSDK</pElem>
             <pElem>../../NetUMP</pElem>
           </incDir>
           <preprocessorList>
@@ -69,27 +69,27 @@
           </linkerLibItems>
         </linkerTool>
       </compileType>
-      <item path="../../../../../SDK/beb/common_src/SystemSleep.cpp"
+      <item path="../../BEBSDK/SystemSleep.cpp"
             ex="false"
             tool="1"
             flavor2="0">
       </item>
-      <item path="../../../../../SDK/beb/common_src/SystemSleep.h"
+      <item path="../../BEBSDK/SystemSleep.h"
             ex="false"
             tool="3"
             flavor2="0">
       </item>
-      <item path="../../../../../SDK/beb/common_src/TargetTypes.h"
+      <item path="../../BEBSDK/TargetTypes.h"
             ex="false"
             tool="3"
             flavor2="0">
       </item>
-      <item path="../../../../../SDK/beb/common_src/network.cpp"
+      <item path="../../BEBSDK/network.cpp"
             ex="false"
             tool="1"
             flavor2="0">
       </item>
-      <item path="../../../../../SDK/beb/common_src/network.h"
+      <item path="../../BEBSDK/network.h"
             ex="false"
             tool="3"
             flavor2="0">
@@ -134,7 +134,7 @@
         <ccTool>
           <developmentMode>5</developmentMode>
           <incDir>
-            <pElem>../../../../../SDK/beb/common_src</pElem>
+            <pElem>../../BEBSDK</pElem>
             <pElem>../../NetUMP</pElem>
           </incDir>
           <preprocessorList>
@@ -153,27 +153,27 @@
           </linkerLibItems>
         </linkerTool>
       </compileType>
-      <item path="../../../../../SDK/beb/common_src/SystemSleep.cpp"
+      <item path="../../BEBSDK/SystemSleep.cpp"
             ex="false"
             tool="1"
             flavor2="0">
       </item>
-      <item path="../../../../../SDK/beb/common_src/SystemSleep.h"
+      <item path="../../BEBSDK/SystemSleep.h"
             ex="false"
             tool="3"
             flavor2="0">
       </item>
-      <item path="../../../../../SDK/beb/common_src/TargetTypes.h"
+      <item path="../../BEBSDK/TargetTypes.h"
             ex="false"
             tool="3"
             flavor2="0">
       </item>
-      <item path="../../../../../SDK/beb/common_src/network.cpp"
+      <item path="../../BEBSDK/network.cpp"
             ex="false"
             tool="1"
             flavor2="0">
       </item>
-      <item path="../../../../../SDK/beb/common_src/network.h"
+      <item path="../../BEBSDK/network.h"
             ex="false"
             tool="3"
             flavor2="0">
