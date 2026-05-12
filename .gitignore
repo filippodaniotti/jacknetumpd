@@ -1,4 +1,2 @@
-jacknetumpd/build
-jacknetumpd/dist
-jacknetumpd/nbproject/private
-jacknetumpd/.dep.inc
+build/
+dist/
