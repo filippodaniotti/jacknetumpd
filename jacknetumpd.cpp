@@ -30,10 +30,12 @@
 /*
  Command line options
 
---host <hostname>        Set remote destination host
+--remotehost <name>      Set remote destination host
 --localport <port>       Set local port for Network UMP (5504 by default)
 --remoteport <port>      Set destination port when Zynthian is session initiator
---endpoint-name <name>   Set local UMP Endpoint Name ("Zynthian NetUMP" by default)
+--endpoint <name>        Set local UMP Endpoint Name
+--interface <name>       Set interface for mDNS
+--hostname <name>        Set hostname for mDNS
 --help                   Display this help message
 
  */
@@ -295,10 +297,10 @@ int main(int argc, char** argv)
     int Ret;
     static jack_client_t *client;
     char *destHost = 0;
-    char *LocalEndpointName = "Nexus Cube";
+    char *LocalEndpointName = "nexus";
     unsigned int LocalPort = 5504;
     unsigned int RemotePort = 5504;
-    char* InterfaceName = "eth0"; 
+    char* InterfaceName = "lo"; 
     char* MDNSHostname = SystemHostname;
 
     fprintf (stdout, "JACK <-> Network UMP bridge V1.4\n");
