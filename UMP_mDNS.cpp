@@ -11,7 +11,7 @@
 #include <sys/ioctl.h>
 #include <stdio.h>
 #include <errno.h>
-#include "network.h"
+#include "NetUMP/Network.h"
 
 typedef struct {
     unsigned short TransactionID;

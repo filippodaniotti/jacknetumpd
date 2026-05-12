@@ -85,11 +85,11 @@
 #include <jack/midiport.h>
 #include <jack/metadata.h>
 
-#include "SystemSleep.h"
-#include "NetUMP.h"
-#include "UMP_Transcoder.h"
 #include "Endpoint.h"
 #include "UMP_mDNS.h"
+#include "NetUMP/SystemSleep.h"
+#include "NetUMP/NetUMP.h"
+#include "NetUMP/UMP_Transcoder.h"
 
 jack_port_t *input_port;
 static jack_port_t *output_port;

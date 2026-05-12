@@ -1,5 +1,5 @@
 #include "Endpoint.h"
-#include "NetUMP.h"
+#include "NetUMP/NetUMP.h"
 
 extern CNetUMPHandler* NetUMPHandler;
 

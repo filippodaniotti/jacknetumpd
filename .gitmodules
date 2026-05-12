@@ -2,6 +2,3 @@
 	path = modules/NetUMP
 	url = https://github.com/gregogiudici/NetUMP.git
 	branch = dev
-[submodule "modules/BEBSDK"]
-	path = modules/BEBSDK
-	url = https://github.com/filippodaniotti/BEBSDK.git
