@@ -25,10 +25,14 @@ typedef struct {
 static char MIDI2ProtocolName [] = "_midi2";
 static char UDPProtocolName [] = "_udp";
 static char LocalDomainName [] = "local";
-static char TargetName [] = "Nexus Cube";
-static char EndpointName [] = "Nexus Cube";
+// static char TargetName [] = "Nexus"; // REMEMBER: no spaces for a correct hostname, otherwise it will not work
+// static char EndpointName [] = "Cube";
+static char TargetName[256];    // hostname, used in SRV and A records
+static char EndpointName[256];  // endpoint name, used in TXT record and ProductInstanceID prefix
+
 #define PRODUCT_INSTANCE_ID_LEN     17
-static char ProductInstanceID [PRODUCT_INSTANCE_ID_LEN+1] = "ZYV5_000000000000";
+// static char ProductInstanceID [PRODUCT_INSTANCE_ID_LEN+1] = "CUBE_000000000000";
+static char ProductInstanceID[PRODUCT_INSTANCE_ID_LEN + 1];
 
 static char ProductInstanceIdTagStr [] = "ProductInstanceId=";
 #define PRODUCT_INSTANCEID_TAG_LEN 18       // Length of ProductInstanceIdStr
@@ -46,45 +50,92 @@ static unsigned char hex2asc (unsigned char hex)
 }  // hex2asc
 // -------------------------------------------------------------
 
-void initUMP_mDNS(int localPort)
+void initUMP_mDNS(int localPort, const char* interfaceName,
+                  const char* endpointName, const char* hostName)
 {
     unsigned char* mDNSPacket;
     char ProductName[64] = "UMPEndpointName=";
     char* ProductInstanceIDPtr;
     struct ifreq ifr{};
-    uint8_t mac_address [6];
+    uint8_t mac_address[6];
 
-    CreateUDPSocket (&mDNSSocket, 0, false);
+    // Copy names into static buffers
+    strncpy(EndpointName, endpointName, sizeof(EndpointName) - 1);
+    EndpointName[sizeof(EndpointName) - 1] = '\0';
+    strncpy(TargetName, hostName, sizeof(TargetName) - 1);
+    TargetName[sizeof(TargetName) - 1] = '\0';
 
-    // Generate product instance ID from MAC Address of ETH0
-    strcpy (ifr.ifr_name, "eth0");
-    ioctl (mDNSSocket, SIOCGIFHWADDR, &ifr);
-    memcpy (mac_address, ifr.ifr_hwaddr.sa_data, 6);
+    CreateUDPSocket(&mDNSSocket, 0, false);
 
-    ProductInstanceID[5] = hex2asc(mac_address[0]>>4);
-    ProductInstanceID[6] = hex2asc(mac_address[0]&0x0F);
-    ProductInstanceID[7] = hex2asc(mac_address[1]>>4);
-    ProductInstanceID[8] = hex2asc(mac_address[1]&0x0F);
-    ProductInstanceID[9] = hex2asc(mac_address[2]>>4);
-    ProductInstanceID[10] = hex2asc(mac_address[2]&0x0F);
-    ProductInstanceID[11] = hex2asc(mac_address[3]>>4);
-    ProductInstanceID[12] = hex2asc(mac_address[3]&0x0F);
-    ProductInstanceID[13] = hex2asc(mac_address[4]>>4);
-    ProductInstanceID[14] = hex2asc(mac_address[4]&0x0F);
-    ProductInstanceID[15] = hex2asc(mac_address[5]>>4);
-    ProductInstanceID[16] = hex2asc(mac_address[5]&0x0F);
+    // Set outgoing multicast interface
+    strcpy(ifr.ifr_name, interfaceName);
+    ioctl(mDNSSocket, SIOCGIFINDEX, &ifr);
+    struct ip_mreqn mreq{};
+    mreq.imr_ifindex = ifr.ifr_ifindex;
+    // IP_MULTICAST_IF — which interface to send from
+    if (setsockopt(mDNSSocket, IPPROTO_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0)
+        fprintf(stderr, "mDNS: IP_MULTICAST_IF failed: %s\n", strerror(errno));
+
+    // IP_MULTICAST_TTL — how far the packet can travel
+    unsigned char ttl = 255;
+    if (setsockopt(mDNSSocket, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0)
+        fprintf(stderr, "mDNS: IP_MULTICAST_TTL failed: %s\n", strerror(errno));
+
+    // Get MAC address
+    ioctl(mDNSSocket, SIOCGIFHWADDR, &ifr);
+    memcpy(mac_address, ifr.ifr_hwaddr.sa_data, 6);
+
+    // Build ProductInstanceID: endpointName chars (uppercased, no spaces) + MAC suffix
+    // filling exactly PRODUCT_INSTANCE_ID_LEN characters.
+    // Example: "Zynthian NetUMP" (13 usable chars) → "ZYNTHIANNETUMP_DC" (17 chars)
+    // Example: "AB"              (2 usable chars)   → "AB_DCA6322AF15200" (17 chars)
+
+    // Build the MAC hex string (12 chars)
+    char macHex[13];
+    for (int i = 0; i < 6; i++)
+    {
+        macHex[i*2]   = hex2asc(mac_address[i] >> 4);
+        macHex[i*2+1] = hex2asc(mac_address[i] & 0x0F);
+    }
+    macHex[12] = '\0';
+
+    // Copy usable chars from endpointName (skip spaces, uppercase)
+    memset(ProductInstanceID, 0, sizeof(ProductInstanceID));
+    int prefixLen = 0;
+    for (int i = 0; endpointName[i] != '\0' && prefixLen < PRODUCT_INSTANCE_ID_LEN - 4; i++) // Let's maintain at least 4 chars for the MAC suffix and separator
+    {
+        char c = endpointName[i];
+        if (c == ' ') continue;
+        ProductInstanceID[prefixLen++] = (c >= 'a' && c <= 'z') ? c - 32 : c;
+    }
+
+    // Add separator
+    if (prefixLen < PRODUCT_INSTANCE_ID_LEN)
+        ProductInstanceID[prefixLen++] = '_';
+
+    // Fill remaining slots with MAC hex digits
+    int macPos = 0;
+    while (prefixLen < PRODUCT_INSTANCE_ID_LEN && macPos < 12)
+        ProductInstanceID[prefixLen++] = macHex[macPos++];
+
+    ProductInstanceID[PRODUCT_INSTANCE_ID_LEN] = '\0';
+
+    // Build TXT UMPEndpointName= field from endpointName
+    strcat(&ProductName[0], &EndpointName[0]);  // "UMPEndpointName=Zynthian NetUMP"
 
     mDNSPacket = &mDNSPacket_[0];
-    strcat (&ProductName[0], &EndpointName[0]);
-    ProductInstanceIDPtr=(char*)&ProductInstanceID[0];
+    ProductInstanceIDPtr = (char*)&ProductInstanceID[0];
 
+    // Some debug output to check the generated ProductInstanceID
+    fprintf(stdout, "jacknetumpd : ProductInstanceID set to '%s'\n", ProductInstanceID);
+
+    // Build mDNS response packet with 1 PTR record (answer) and 3 additional records (SRV, TXT, A)
     TMDNS_Header* Header = (TMDNS_Header*)mDNSPacket;
 
     // Compute size of the various strings
     unsigned int MIDI2ProtocolNameLen = strlen (&MIDI2ProtocolName[0]);
     unsigned int UDPProtocolNameLen = strlen (&UDPProtocolName[0]);
     unsigned int LocalDomainNameLen = strlen (&LocalDomainName[0]);
-    //unsigned int KBServiceNameLen = strlen (&KBServiceName[0]);
     unsigned int TargetNameLen = strlen (&TargetName[0]);
     unsigned int ProductNameLen = strlen (&ProductName[0]);
     unsigned int BufferPos;
@@ -92,12 +143,13 @@ void initUMP_mDNS(int localPort)
     Header->TransactionID = 0;
     Header->Flags = htons (0x8400);
     Header->Questions = 0;
-    Header->AnswerRRs = htons(4);    // Change depending on what follows
+    // 1 answer (PTR), 3 additional records (SRV, TXT, A)
+    Header->AnswerRRs = htons(1);
     Header->AuthorityRRs = 0;
-    Header->AdditionalRRs = htons (0);       // Change depending on what follows
+    Header->AdditionalRRs = htons(3);
 
-    // Add the AnswerRR (from byte 12)
-    // Build the Name
+    // --- PTR record (answer) ---
+    // Name: _midi2._udp.local.
     BufferPos = 13;
     mDNSPacket[12] = MIDI2ProtocolNameLen;
     memcpy (&mDNSPacket[BufferPos], &MIDI2ProtocolName[0], MIDI2ProtocolNameLen);
@@ -108,19 +160,20 @@ void initUMP_mDNS(int localPort)
     mDNSPacket[BufferPos++] = LocalDomainNameLen;
     memcpy (&mDNSPacket[BufferPos], &LocalDomainName[0], LocalDomainNameLen);
     BufferPos+=LocalDomainNameLen;
-    mDNSPacket[BufferPos++] = 0;        // NULL terminator after the string
+    mDNSPacket[BufferPos++] = 0;        // NULL terminator
 
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x0C;        // 0x000C = Type PTR
+    mDNSPacket [BufferPos++] = 0x0C;    // Type PTR
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x01;        // 0x0001 = Class IN
+    mDNSPacket [BufferPos++] = 0x01;    // Class IN
     mDNSPacket [BufferPos++] = 0x00;
     mDNSPacket [BufferPos++] = 0x00;
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x78;        // TTL = 120 seconds
-    mDNSPacket [BufferPos++] = 0x00;        // Length MSB
-    mDNSPacket [BufferPos++] = PRODUCT_INSTANCE_ID_LEN+MIDI2ProtocolNameLen+UDPProtocolNameLen+LocalDomainNameLen+4+1;   // Add length byte + NULL terminator
+    mDNSPacket [BufferPos++] = 0x78;    // TTL = 120 seconds
+    mDNSPacket [BufferPos++] = 0x00;    // Data length MSB
+    mDNSPacket [BufferPos++] = PRODUCT_INSTANCE_ID_LEN+MIDI2ProtocolNameLen+UDPProtocolNameLen+LocalDomainNameLen+4+1;
 
+    // PTR target: ZYV5_xxxx._midi2._udp.local.
     mDNSPacket [BufferPos++] = PRODUCT_INSTANCE_ID_LEN;
     memcpy (&mDNSPacket[BufferPos], ProductInstanceIDPtr, PRODUCT_INSTANCE_ID_LEN);
     BufferPos+=PRODUCT_INSTANCE_ID_LEN;
@@ -133,10 +186,10 @@ void initUMP_mDNS(int localPort)
     mDNSPacket[BufferPos++] = LocalDomainNameLen;
     memcpy (&mDNSPacket[BufferPos], &LocalDomainName[0], LocalDomainNameLen);
     BufferPos+=LocalDomainNameLen;
-    mDNSPacket[BufferPos++] = 0;        // NULL terminator after the string
+    mDNSPacket[BufferPos++] = 0;        // NULL terminator
 
-    // Add the Additional Records
-    // Add the SRV block
+    // --- SRV record (additional) ---
+    // Name: ZYV5_xxxx._midi2._udp.local.
     mDNSPacket [BufferPos++] = PRODUCT_INSTANCE_ID_LEN;
     memcpy (&mDNSPacket[BufferPos], ProductInstanceIDPtr, PRODUCT_INSTANCE_ID_LEN);
     BufferPos+=PRODUCT_INSTANCE_ID_LEN;
@@ -149,31 +202,36 @@ void initUMP_mDNS(int localPort)
     mDNSPacket[BufferPos++] = LocalDomainNameLen;
     memcpy (&mDNSPacket[BufferPos], &LocalDomainName[0], LocalDomainNameLen);
     BufferPos+=LocalDomainNameLen;
-    mDNSPacket[BufferPos++] = 0;        // NULL terminator after the string
+    mDNSPacket[BufferPos++] = 0;        // NULL terminator
 
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x21;        // 0x000C = Type SRV
+    mDNSPacket [BufferPos++] = 0x21;    // Type SRV
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x01;        // 0x0001 = Class IN
+    mDNSPacket [BufferPos++] = 0x01;    // Class IN
     mDNSPacket [BufferPos++] = 0x00;
     mDNSPacket [BufferPos++] = 0x00;
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x78;        // TTL = 120 seconds
+    mDNSPacket [BufferPos++] = 0x78;    // TTL = 120 seconds
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 6+TargetNameLen+2;        // Data length
+    // Data length = 6 (priority, weight, port) + 1 (target name length) + target name + 1 (local domain name length) + local domain name + 1 (NULL terminator)
+    mDNSPacket [BufferPos++] = 6 + 1 + TargetNameLen + 1 + LocalDomainNameLen + 1;
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x00;        // Priority
+    mDNSPacket [BufferPos++] = 0x00;    // Priority
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x00;        // Weight
-    mDNSPacket [BufferPos++] = (localPort >> 8) & 0xFF;  // Or: htons(localPort) >> 8
-    mDNSPacket [BufferPos++] = localPort & 0xFF;         // Or: htons(localPort) & 0xFF
+    mDNSPacket [BufferPos++] = 0x00;    // Weight
+    mDNSPacket [BufferPos++] = (localPort >> 8) & 0xFF;
+    mDNSPacket [BufferPos++] = localPort & 0xFF;
+    // TargetName should end with ".local" for a correct hostname, otherwise it will not work
     mDNSPacket [BufferPos++] = TargetNameLen;
     memcpy (&mDNSPacket[BufferPos], &TargetName[0], TargetNameLen);
     BufferPos+=TargetNameLen;
-    mDNSPacket[BufferPos++] = 0;     // NULL terminator after the string
+    mDNSPacket [BufferPos++] = LocalDomainNameLen;
+    memcpy (&mDNSPacket[BufferPos], &LocalDomainName[0], LocalDomainNameLen);
+    BufferPos+=LocalDomainNameLen;
+    mDNSPacket [BufferPos++] = 0;       // NULL terminator
 
-    // Add the TXT block
-    // Name is built in the same way as for SRV
+    // --- TXT record (additional) ---
+    // Name: CUBE_xxxx._midi2._udp.local.
     mDNSPacket [BufferPos++] = PRODUCT_INSTANCE_ID_LEN;
     memcpy (&mDNSPacket[BufferPos], ProductInstanceIDPtr, PRODUCT_INSTANCE_ID_LEN);
     BufferPos+=PRODUCT_INSTANCE_ID_LEN;
@@ -186,62 +244,57 @@ void initUMP_mDNS(int localPort)
     mDNSPacket[BufferPos++] = LocalDomainNameLen;
     memcpy (&mDNSPacket[BufferPos], &LocalDomainName[0], LocalDomainNameLen);
     BufferPos+=LocalDomainNameLen;
-    mDNSPacket[BufferPos++] = 0;        // NULL terminator after the string
+    mDNSPacket[BufferPos++] = 0;        // NULL terminator
 
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x10;        // 0x0010 = Type TXT
+    mDNSPacket [BufferPos++] = 0x10;    // Type TXT
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x01;        // 0x0001 = Class IN
+    mDNSPacket [BufferPos++] = 0x01;    // Class IN
     mDNSPacket [BufferPos++] = 0x00;
     mDNSPacket [BufferPos++] = 0x00;
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x78;        // TTL = 120 seconds
-    mDNSPacket [BufferPos++] = 0x00;        // Length MSB
-
-	mDNSPacket [BufferPos++] = ProductNameLen+1+PRODUCT_INSTANCE_ID_LEN+1+PRODUCT_INSTANCEID_TAG_LEN;        // Data length (18 = size of "ProductInstanceID=" string)
-    mDNSPacket [BufferPos++] = ProductNameLen;      // First string
+    mDNSPacket [BufferPos++] = 0x78;    // TTL = 120 seconds
+    mDNSPacket [BufferPos++] = 0x00;    // Data length MSB
+    mDNSPacket [BufferPos++] = ProductNameLen+1+PRODUCT_INSTANCE_ID_LEN+1+PRODUCT_INSTANCEID_TAG_LEN;
+    mDNSPacket [BufferPos++] = ProductNameLen;
     memcpy (&mDNSPacket[BufferPos], &ProductName[0], ProductNameLen);
     BufferPos+=ProductNameLen;
-
-    mDNSPacket [BufferPos++] = PRODUCT_INSTANCE_ID_LEN+PRODUCT_INSTANCEID_TAG_LEN;      // Second string
-
+    mDNSPacket [BufferPos++] = PRODUCT_INSTANCE_ID_LEN+PRODUCT_INSTANCEID_TAG_LEN;
     memcpy (&mDNSPacket[BufferPos], &ProductInstanceIdTagStr, PRODUCT_INSTANCEID_TAG_LEN);
     BufferPos+=PRODUCT_INSTANCEID_TAG_LEN;
     memcpy (&mDNSPacket[BufferPos], ProductInstanceIDPtr, PRODUCT_INSTANCE_ID_LEN);
     BufferPos+=PRODUCT_INSTANCE_ID_LEN;
 
-    // Add the A block (IP v4 address)
+    // --- A record (additional) ---
     mDNSPacket [BufferPos++] = TargetNameLen;
     memcpy (&mDNSPacket[BufferPos], &TargetName[0], TargetNameLen);
     BufferPos+=TargetNameLen;
-    mDNSPacket [BufferPos++] = 0x00;    // Add NULL terminator
+    mDNSPacket [BufferPos++] = LocalDomainNameLen;
+    memcpy (&mDNSPacket[BufferPos], &LocalDomainName[0], LocalDomainNameLen);
+    BufferPos+=LocalDomainNameLen;
+    mDNSPacket [BufferPos++] = 0x00;    // NULL terminator
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x01;        // 0x0010 = Type A
+    mDNSPacket [BufferPos++] = 0x01;    // Type A
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x01;        // 0x0001 = Class IN
+    mDNSPacket [BufferPos++] = 0x01;    // Class IN
     mDNSPacket [BufferPos++] = 0x00;
     mDNSPacket [BufferPos++] = 0x00;
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x78;        // TTL = 120 seconds
+    mDNSPacket [BufferPos++] = 0x78;    // TTL = 120 seconds
     mDNSPacket [BufferPos++] = 0x00;
-    mDNSPacket [BufferPos++] = 0x04;        // Length = 4
+    mDNSPacket [BufferPos++] = 0x04;    // Length = 4 bytes
 
-    // Get system IP address for eth0
-    strcpy (ifr.ifr_name, "eth0");
-    ifr.ifr_addr.sa_family = AF_INET;       // We want IPv4 address
+    // Get system IP address
+    strcpy (ifr.ifr_name, interfaceName);
+    ifr.ifr_addr.sa_family = AF_INET;
     ioctl (mDNSSocket, SIOCGIFADDR, &ifr);
 
-    // Add IP address
     struct in_addr in = ((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr;
-    uint32_t IPV4Addr = htonl(in.s_addr);
-
-    mDNSPacket [BufferPos++] = (IPV4Addr>>24)&0xFF;
-    mDNSPacket [BufferPos++] = (IPV4Addr>>16)&0xFF;
-    mDNSPacket [BufferPos++] = (IPV4Addr>>8)&0xFF;
-    mDNSPacket [BufferPos++] = IPV4Addr&0xFF;
+    memcpy(&mDNSPacket[BufferPos], &in.s_addr, 4);
+    BufferPos+=4;
 
     mDNSPacketLen = BufferPos;
-}  // initUMP_MDNS
+}  // initUMP_mDNS
 // -------------------------------------------------------------
 
 void TerminatemDNS (void)
@@ -256,15 +309,14 @@ void TerminatemDNS (void)
 
 void SendUMPmDNS (void)
 {
-	sockaddr_in AdrEmit;
+    sockaddr_in AdrEmit;
 
     if (mDNSSocket==INVALID_SOCKET) return;
 
     memset (&AdrEmit, 0, sizeof(sockaddr_in));
-	AdrEmit.sin_family=AF_INET;
-	AdrEmit.sin_addr.s_addr=htonl(0xE00000FB);
-	//AdrEmit.sin_addr.s_addr=htonl(0xC0A80028);
-	AdrEmit.sin_port=htons(5353);
-	sendto(mDNSSocket, (const char*)&mDNSPacket_, mDNSPacketLen, 0, (const sockaddr*)&AdrEmit, sizeof(sockaddr_in));
-}  //SendUMPmDNS
+    AdrEmit.sin_family=AF_INET;
+    AdrEmit.sin_addr.s_addr=htonl(0xE00000FB);  // 224.0.0.251
+    AdrEmit.sin_port=htons(5353);
+    sendto(mDNSSocket, (const char*)&mDNSPacket_, mDNSPacketLen, 0, (const sockaddr*)&AdrEmit, sizeof(sockaddr_in));
+}  // SendUMPmDNS
 // -------------------------------------------------------------

@@ -289,16 +289,21 @@ void sig_handler (int signo)
 
 int main(int argc, char** argv)
 {
+    char SystemHostname[256];
+    gethostname(SystemHostname, sizeof(SystemHostname));
+
     int Ret;
     static jack_client_t *client;
     char *destHost = 0;
-    char *LocalEndpointName = "Zynthian NetUMP";
+    char *LocalEndpointName = "Nexus Cube";
     unsigned int LocalPort = 5504;
     unsigned int RemotePort = 5504;
+    char* InterfaceName = "eth0"; 
+    char* MDNSHostname = SystemHostname;
 
-    fprintf (stdout, "JACK <-> Network UMP bridge V1.4 for Zynthian\n");
+    fprintf (stdout, "JACK <-> Network UMP bridge V1.4\n");
     fprintf (stdout, "Copyright 2024/2025 Benoit BOUCHEZ (BEB)\n");
-    fprintf (stdout, "Please report any issue to BEB on discourse.zynthian.org\n");
+    fprintf (stdout, "(CIMIL customization)\n");
 
     break_request=false;
     signal (SIGINT, sig_handler);
@@ -309,7 +314,7 @@ int main(int argc, char** argv)
     // Parse command line arguments
     for (int i = 1; i < argc; i++)
     {
-        if (strcmp(argv[i], "--host") == 0 && i + 1 < argc)
+        if (strcmp(argv[i], "--remotehost") == 0 && i + 1 < argc)
         {
             destHost = argv[i + 1];
             i++;
@@ -324,19 +329,31 @@ int main(int argc, char** argv)
             RemotePort = atoi(argv[i + 1]);
             i++;
         }
-        else if (strcmp(argv[i], "--endpoint-name") == 0 && i + 1 < argc)
+        else if (strcmp(argv[i], "--endpoint") == 0 && i + 1 < argc)
         {
             LocalEndpointName = argv[i + 1];
+            i++;
+        }
+        else if (strcmp(argv[i], "--interface") == 0 && i + 1 < argc)
+        {
+            InterfaceName = argv[i + 1];
+            i++;
+        }
+        else if (strcmp(argv[i], "--hostname") == 0 && i + 1 < argc)
+        {
+            MDNSHostname = argv[i + 1];
             i++;
         }
         else if (strcmp(argv[i], "--help") == 0)
         {
             fprintf(stdout, "Usage: %s [options]\n", argv[0]);
             fprintf(stdout, "Options:\n");
-            fprintf(stdout, "  --host <hostname>        Set remote destination host\n");
+            fprintf(stdout, "  --remotehost <hostname>        Set remote destination host\n");
             fprintf(stdout, "  --localport <port>       Set Network UMP local port\n");
             fprintf(stdout, "  --remoteport <port>      Set Network UMP port on remote host\n");
-            fprintf(stdout, "  --endpoint-name <name>   Set local UMP Endpoint Name\n");
+            fprintf(stdout, "  --endpoint <name>   Set local UMP Endpoint Name\n");
+            fprintf(stdout, "  --interface <name>   Set Interface for mDNS\n");
+            fprintf(stdout, "  --hostname <name>   Set Hostname for mDNS\n");
             fprintf(stdout, "  --help                   Display this help message\n");
             return 0;
         }
@@ -348,7 +365,7 @@ int main(int argc, char** argv)
         }
     }
 
-    initUMP_mDNS(LocalPort);
+    initUMP_mDNS(LocalPort, InterfaceName, LocalEndpointName, MDNSHostname);
 
     if ((client = jack_client_open (LocalEndpointName, JackNullOption, NULL)) == 0)
     {
