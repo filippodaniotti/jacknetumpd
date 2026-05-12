@@ -348,7 +348,7 @@ int main(int argc, char** argv)
         }
     }
 
-    initUMP_mDNS();
+    initUMP_mDNS(LocalPort);
 
     if ((client = jack_client_open (LocalEndpointName, JackNullOption, NULL)) == 0)
     {

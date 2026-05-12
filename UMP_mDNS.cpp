@@ -46,7 +46,7 @@ static unsigned char hex2asc (unsigned char hex)
 }  // hex2asc
 // -------------------------------------------------------------
 
-void initUMP_mDNS(void)
+void initUMP_mDNS(int localPort)
 {
     unsigned char* mDNSPacket;
     char ProductName[64] = "UMPEndpointName=";
@@ -165,8 +165,8 @@ void initUMP_mDNS(void)
     mDNSPacket [BufferPos++] = 0x00;        // Priority
     mDNSPacket [BufferPos++] = 0x00;
     mDNSPacket [BufferPos++] = 0x00;        // Weight
-    mDNSPacket [BufferPos++] = 0x15;
-    mDNSPacket [BufferPos++] = 0x80;        // Port 5504
+    mDNSPacket [BufferPos++] = (localPort >> 8) & 0xFF;  // Or: htons(localPort) >> 8
+    mDNSPacket [BufferPos++] = localPort & 0xFF;         // Or: htons(localPort) & 0xFF
     mDNSPacket [BufferPos++] = TargetNameLen;
     memcpy (&mDNSPacket[BufferPos], &TargetName[0], TargetNameLen);
     BufferPos+=TargetNameLen;
