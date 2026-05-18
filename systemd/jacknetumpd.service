@@ -5,7 +5,7 @@ After=pipewire.service pipewire-jack.service wireplumber.service
 
 [Service]
 Type=exec
-ExecStart=/usr/bin/bash pw-jack /usr/bin/jacknetumpd --localport 5504 --endpoint-name jacknetumpd
+ExecStart=/usr/bin/bash pw-jack /usr/bin/jacknetumpd --localport 5504 --endpoint jacknetumpd --interface eth0
 TimeoutStartSec=0
 
 [Install]
