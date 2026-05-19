@@ -35,7 +35,6 @@
 --remoteport <port>      Set destination port when Zynthian is session initiator
 --endpoint <name>        Set local UMP Endpoint Name
 --interface <name>       Set interface for mDNS
---hostname <name>        Set hostname for mDNS
 --help                   Display this help message
 
  */
@@ -291,8 +290,6 @@ void sig_handler (int signo)
 
 int main(int argc, char** argv)
 {
-    char SystemHostname[256];
-    gethostname(SystemHostname, sizeof(SystemHostname));
 
     int Ret;
     static jack_client_t *client;
@@ -301,7 +298,6 @@ int main(int argc, char** argv)
     unsigned int LocalPort = 5504;
     unsigned int RemotePort = 5504;
     char* InterfaceName = "lo"; 
-    char* MDNSHostname = SystemHostname;
 
     fprintf (stdout, "JACK <-> Network UMP bridge V1.4\n");
     fprintf (stdout, "Copyright 2024/2025 Benoit BOUCHEZ (BEB)\n");
@@ -341,11 +337,6 @@ int main(int argc, char** argv)
             InterfaceName = argv[i + 1];
             i++;
         }
-        else if (strcmp(argv[i], "--hostname") == 0 && i + 1 < argc)
-        {
-            MDNSHostname = argv[i + 1];
-            i++;
-        }
         else if (strcmp(argv[i], "--help") == 0)
         {
             fprintf(stdout, "Usage: %s [options]\n", argv[0]);
@@ -355,7 +346,6 @@ int main(int argc, char** argv)
             fprintf(stdout, "  --remoteport <port>      Set Network UMP port on remote host\n");
             fprintf(stdout, "  --endpoint <name>   Set local UMP Endpoint Name\n");
             fprintf(stdout, "  --interface <name>   Set Interface for mDNS\n");
-            fprintf(stdout, "  --hostname <name>   Set Hostname for mDNS\n");
             fprintf(stdout, "  --help                   Display this help message\n");
             return 0;
         }
@@ -367,7 +357,8 @@ int main(int argc, char** argv)
         }
     }
 
-    // initUMP_mDNS(LocalPort, InterfaceName, LocalEndpointName, MDNSHostname);
+
+    initUMP_mDNS(LocalPort, InterfaceName, LocalEndpointName);
 
     if ((client = jack_client_open (LocalEndpointName, JackNullOption, NULL)) == 0)
     {
@@ -451,13 +442,13 @@ int main(int argc, char** argv)
         if (NetUMPHandler)
             NetUMPHandler->RunSession();
 
-        // // Send UMP mDNS packet every 5 seconds
-        // IntermDNSPacketCounter++;
-        // if (IntermDNSPacketCounter>=5000)
-        // {
-        //     IntermDNSPacketCounter = 0;
-        //     SendUMPmDNS();
-        // }
+        // Send UMP mDNS packet every 5 seconds
+       // IntermDNSPacketCounter++;
+       // if (IntermDNSPacketCounter>=5000)
+       // {
+       //     IntermDNSPacketCounter = 0;
+       //     SendUMPmDNS();
+       // }
         SystemSleepMillis(1);        // Run NetUMP process every millisecond
     }
     fprintf (stdout, "Program termination requested by user\n");
@@ -472,7 +463,7 @@ int main(int argc, char** argv)
         NetUMPHandler=0;
     }
 
-    // TerminatemDNS();
+    TerminatemDNS();
 
     fprintf (stdout, "Done...\n");
 
