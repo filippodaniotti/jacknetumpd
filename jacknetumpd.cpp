@@ -367,7 +367,7 @@ int main(int argc, char** argv)
         }
     }
 
-    initUMP_mDNS(LocalPort, InterfaceName, LocalEndpointName, MDNSHostname);
+    // initUMP_mDNS(LocalPort, InterfaceName, LocalEndpointName, MDNSHostname);
 
     if ((client = jack_client_open (LocalEndpointName, JackNullOption, NULL)) == 0)
     {
@@ -451,13 +451,13 @@ int main(int argc, char** argv)
         if (NetUMPHandler)
             NetUMPHandler->RunSession();
 
-        // Send UMP mDNS packet every 5 seconds
-        IntermDNSPacketCounter++;
-        if (IntermDNSPacketCounter>=5000)
-        {
-            IntermDNSPacketCounter = 0;
-            SendUMPmDNS();
-        }
+        // // Send UMP mDNS packet every 5 seconds
+        // IntermDNSPacketCounter++;
+        // if (IntermDNSPacketCounter>=5000)
+        // {
+        //     IntermDNSPacketCounter = 0;
+        //     SendUMPmDNS();
+        // }
         SystemSleepMillis(1);        // Run NetUMP process every millisecond
     }
     fprintf (stdout, "Program termination requested by user\n");
@@ -472,7 +472,7 @@ int main(int argc, char** argv)
         NetUMPHandler=0;
     }
 
-    TerminatemDNS();
+    // TerminatemDNS();
 
     fprintf (stdout, "Done...\n");
 
